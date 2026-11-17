@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+
 test('real gateway results and standings are usable', async ({ page }) => {
   await page.goto('/');
   await expect(

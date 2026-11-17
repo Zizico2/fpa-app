@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { getBoard } from './results';
 import { readSelection } from '../lib/results';
+import { getBoard } from './results';
 export const api = new Hono()
   .basePath('/api')
   .get('/board', async (c) => {

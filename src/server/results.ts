@@ -1,11 +1,12 @@
 import 'server-only';
-import { createClient, ConnectError, Code } from '@connectrpc/connect';
-import { createGrpcTransport } from '@connectrpc/connect-node';
-import { timestampDate } from '@bufbuild/protobuf/wkt';
 import type { Timestamp } from '@bufbuild/protobuf/wkt';
-import { ResultsService } from './gen/fpa/v1/results_pb';
-import type { Match, Participant } from './gen/fpa/v1/results_pb';
+import { timestampDate } from '@bufbuild/protobuf/wkt';
+import { Code, ConnectError, createClient } from '@connectrpc/connect';
+import { createGrpcTransport } from '@connectrpc/connect-node';
 import type { Board, Game, Person, Selection } from '../lib/results';
+import type { Match, Participant } from './gen/fpa/v1/results_pb';
+import { ResultsService } from './gen/fpa/v1/results_pb';
+
 const iso = (t?: Timestamp) => (t ? timestampDate(t).toISOString() : null);
 const game = (r: Match): Game => ({
   id: r.id,

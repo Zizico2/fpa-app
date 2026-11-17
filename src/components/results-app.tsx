@@ -1,37 +1,29 @@
 'use client';
 import { Button } from '@astryxdesign/core/Button';
-import { BottomSheet } from '@astryxdesign/core/BottomSheet';
-import { Selector } from '@astryxdesign/core/Selector';
-import { TextInput } from '@astryxdesign/core/TextInput';
-import { Stack } from '@astryxdesign/core/Stack';
 import { Heading } from '@astryxdesign/core/Heading';
-import { Text } from '@astryxdesign/core/Text';
 import { Icon } from '@astryxdesign/core/Icon';
-import {
-  RefreshCw,
-  ArrowUpRight,
-  ArrowLeft,
-  Search,
-  Activity,
-} from 'lucide-react';
+import { Selector } from '@astryxdesign/core/Selector';
+import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
 import * as stylex from '@stylexjs/stylex';
-import { DbProvider, useDbClient, useLiveQuery } from '@tanstack/react-db';
 import { useMachine } from '@xstate/react';
-import { useEffect, useState, useRef } from 'react';
-import type { QueryClient } from '@tanstack/query-core';
-import { createFpaDb, boardCollection, boardQuery } from '../lib/collections';
+import { Activity, ArrowUpRight, RefreshCw, Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { navigationMachine } from '../lib/navigation';
 import {
   type Board,
-  type Selection,
-  type Detail,
-  selectionKey,
-  searchGames,
+  competitionLabel,
+  consultationTime,
   gameDate,
+  matchPath,
+  resultsPath,
+  type Selection,
   score,
-  readSelection,
+  searchGames,
+  selectionKey,
 } from '../lib/results';
-import { loadBoard } from '../sdk/results';
+import { DataScope, useBoard } from './data-scope';
+import { SiteHeader } from './site-header';
 export function ResultsApp({
   initial,
   input,
@@ -44,9 +36,9 @@ export function ResultsApp({
   const [search, setSearch] = useState('');
   const [mode, setMode] = useState('results');
   useEffect(() => {
-    const p = new URLSearchParams();
-    for (const [k, v] of Object.entries(selection)) if (v) p.set(k, v);
-    window.history.replaceState(null, '', '?' + p.toString());
+    const path = resultsPath(selection);
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (current !== path) window.history.replaceState(null, '', path);
   }, [selection]);
   const key = selectionKey(selection);
   const initialForScope =
@@ -66,35 +58,12 @@ export function ResultsApp({
     </DataScope>
   );
 }
-function DataScope({
-  selection,
-  children,
-}: {
-  selection: Selection;
-  children: React.ReactNode;
-}) {
-  const [scope] = useState(() =>
-    createFpaDb((signal) => loadBoard(selection, signal)),
-  );
-  const teardown = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (teardown.current) clearTimeout(teardown.current);
-    return () => {
-      teardown.current = setTimeout(() => {
-        void scope.db.cleanup();
-        scope.queryClient.clear();
-      }, 0);
-    };
-  }, [scope]);
-  return <DbProvider client={scope.db}>{children}</DbProvider>;
-}
 type Send = (
   e:
     | {
-        type: 'SEASON' | 'GENDER' | 'COMPETITION' | 'PHASE' | 'OPEN';
+        type: 'SEASON' | 'GENDER' | 'COMPETITION' | 'PHASE';
         value: string;
       }
-    | { type: 'CLOSE' }
     | { type: 'TAB'; value: 'results' | 'standings' },
 ) => void;
 function BoardPanel({
@@ -116,65 +85,17 @@ function BoardPanel({
   mode: string;
   setMode: (s: string) => void;
 }) {
-  const db = useDbClient();
-  const { data } = useLiveQuery({ query: boardQuery() });
-  const board = data[0] ?? initial;
-  const [error, setError] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
+  const { board, error, refreshing, refresh } = useBoard(initial);
   const [limit, setLimit] = useState(80);
-  useEffect(() => {
-    const q = db.requireDependency<QueryClient>('queryClient');
-    const update = () =>
-      setError(
-        q.getQueryState(['fpa-board'])?.status === 'error'
-          ? 'A atualização falhou. A última informação disponível foi mantida.'
-          : '',
-      );
-    update();
-    return q.getQueryCache().subscribe(update);
-  }, [db]);
-  async function refresh() {
-    setRefreshing(true);
-    try {
-      const c = db.collection(boardCollection);
-      // A failed first load must not prevent an explicit retry.
-      await c.preload().catch(() => undefined);
-      await c.utils.refetch({ throwOnError: true });
-    } catch {
-      setError('Não foi possível atualizar. Tente novamente.');
-    } finally {
-      setRefreshing(false);
-    }
-  }
   const rows = searchGames(board?.games ?? [], search, mode);
   const comp = board?.competitions.find(
     (c) => c.id === board.selection.competition,
   );
   const phase = board?.phases.find((p) => p.id === board.selection.phase);
-  const checked = board?.fetchedAt
-    ? new Intl.DateTimeFormat('pt-PT', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        timeZone: 'Europe/Lisbon',
-      }).format(new Date(board.fetchedAt))
-    : '—';
+  const checked = consultationTime(board?.fetchedAt);
   return (
     <div {...stylex.props(styles.app)}>
-      <header {...stylex.props(styles.header)}>
-        <a href="/" {...stylex.props(styles.brand)}>
-          sete<span {...stylex.props(styles.dot)}>.</span>
-        </a>
-        <Text color="secondary">Andebol português</Text>
-        <a
-          href="https://portal.fpa.pt/"
-          target="_blank"
-          rel="noreferrer"
-          {...stylex.props(styles.source)}
-        >
-          Fonte FPA ↗
-        </a>
-      </header>
+      <SiteHeader />
       <main {...stylex.props(styles.layout)}>
         <aside {...stylex.props(styles.sidebar)}>
           <Text type="supporting">COMPETIÇÕES NACIONAIS</Text>
@@ -234,8 +155,7 @@ function BoardPanel({
           <div {...stylex.props(styles.titleRow)}>
             <div>
               <Heading level={1} xstyle={styles.title}>
-                {comp?.name.replace(/^PO0?(\d+A?)\s*-\s*/, '') ??
-                  'O jogo, em números.'}
+                {comp ? competitionLabel(comp.name) : 'O jogo, em números.'}
               </Heading>
               <Text color="secondary">
                 {phase?.name ?? 'Calendário, resultados e classificação'}
@@ -396,10 +316,12 @@ function BoardPanel({
                           {gameDate(g.date)}
                         </div>
                       )}
-                      <button
-                        type="button"
+                      <a
+                        href={matchPath({
+                          ...(board?.selection ?? selection),
+                          match: g.id,
+                        })}
                         aria-label={`${g.home} — ${g.away}, ver jogo`}
-                        onClick={() => send({ type: 'OPEN', value: g.id })}
                         {...stylex.props(styles.gameRow)}
                       >
                         <span {...stylex.props(styles.gameMeta)}>
@@ -417,7 +339,7 @@ function BoardPanel({
                           <span>{score(g.awayGoals)}</span>
                         </span>
                         <ArrowUpRight size={16} aria-hidden="true" />
-                      </button>
+                      </a>
                     </div>
                   ))}
                 </div>
@@ -448,156 +370,11 @@ function BoardPanel({
           </footer>
         </section>
       </main>
-      <BottomSheet
-        label="Boletim de jogo"
-        isOpen={Boolean(selection.match)}
-        onOpenChange={(open) => {
-          if (!open) send({ type: 'CLOSE' });
-        }}
-        height="full"
-      >
-        <Stack gap={5} padding={5}>
-          <Button
-            label="Voltar aos resultados"
-            icon={<Icon icon={ArrowLeft} />}
-            variant="ghost"
-            onClick={() => send({ type: 'CLOSE' })}
-          />
-          {board?.detail ? (
-            <MatchSheet detail={board.detail} />
-          ) : (
-            <>
-              <Heading level={2}>
-                {board?.detailError ?? 'A consultar o jogo…'}
-              </Heading>
-              {board?.detailError && (
-                <Button label="Tentar novamente" onClick={refresh} />
-              )}
-            </>
-          )}
-        </Stack>
-      </BottomSheet>
     </div>
-  );
-}
-function MatchSheet({ detail }: { detail: Detail }) {
-  const g = detail.game;
-  return (
-    <Stack gap={5}>
-      <Text color="secondary">
-        {gameDate(g.date)} · {g.time || 'Hora por definir'} · Jornada {g.round}
-      </Text>
-      <Heading level={2}>
-        {g.home} — {g.away}
-      </Heading>
-      <div {...stylex.props(styles.bigScore)}>
-        {score(g.homeGoals)} <span {...stylex.props(styles.scoreDash)}>:</span>{' '}
-        {score(g.awayGoals)}
-      </div>
-      <Text color="secondary">
-        {g.sourceState === '60'
-          ? 'Resultado registado'
-          : g.homeGoals != null
-            ? 'Marcador publicado · atualização automática'
-            : 'Resultado por publicar'}{' '}
-        · {g.venue || 'Recinto por definir'}
-      </Text>
-      {detail.periods.length > 0 && (
-        <table {...stylex.props(styles.table)}>
-          <caption>Resultados por período</caption>
-          <tbody>
-            {detail.periods.map((p) => (
-              <tr key={p.name}>
-                <th scope="row">{p.name}</th>
-                <td>
-                  {score(p.home)} — {score(p.away)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {[
-        { name: g.home, players: detail.homePlayers },
-        { name: g.away, players: detail.awayPlayers },
-      ].map((team) => (
-        <div key={team.name}>
-          <Heading level={3}>{team.name}</Heading>
-          {!team.players.length ? (
-            <Text color="secondary">Boletim ainda não publicado.</Text>
-          ) : (
-            <div {...stylex.props(styles.tableScroll)}>
-              <table {...stylex.props(styles.table)}>
-                <thead>
-                  <tr>
-                    {['N.º', 'Jogador / equipa técnica', 'Golos', '2 min'].map(
-                      (h) => (
-                        <th key={h}>{h}</th>
-                      ),
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {team.players.map((p, i) => (
-                    <tr key={p.name + i}>
-                      <td>{p.shirt || '—'}</td>
-                      <th scope="row">
-                        {p.name}
-                        {p.role && <small> · {p.role}</small>}
-                        {p.yellow === 'S' && ' 🟨'}
-                        {p.disqualified === 'S' && ' 🟥'}
-                      </th>
-                      <td>{score(p.goals)}</td>
-                      <td>{p.exclusions || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      ))}
-      {!!detail.officials.length && (
-        <Stack gap={2}>
-          <Heading level={3}>Oficiais de jogo</Heading>
-          {detail.officials.map((name, i) => (
-            <Text key={name + i}>{name}</Text>
-          ))}
-        </Stack>
-      )}
-      <a
-        href={`https://portal.fpa.pt/jogo/${g.id}/`}
-        target="_blank"
-        rel="noreferrer"
-        {...stylex.props(styles.source)}
-      >
-        Ver boletim na FPA ↗
-      </a>
-    </Stack>
   );
 }
 const styles = stylex.create({
   app: { minHeight: '100dvh', backgroundColor: '#f4f5f5', color: '#152327' },
-  header: {
-    height: 76,
-    paddingInline: {
-      default: 'max(24px, calc((100vw - 1320px) / 2))',
-      '@media(max-width:767px)': 16,
-    },
-    display: 'flex',
-    alignItems: 'center',
-    gap: 20,
-    backgroundColor: '#fff',
-    borderBottom: '1px solid #e2e6e5',
-  },
-  brand: {
-    fontSize: 40,
-    fontWeight: 800,
-    letterSpacing: '-0.08em',
-    textDecoration: 'none',
-    color: '#152327',
-  },
-  dot: { color: '#b33126' },
   source: {
     fontSize: 12,
     color: '#60736c',
@@ -700,6 +477,7 @@ const styles = stylex.create({
     borderWidth: 0,
     borderBottom: '1px solid #eef0ef',
     textAlign: 'left',
+    textDecoration: 'none',
     cursor: 'pointer',
     color: '#152327',
     outline: { default: 'none', ':focus-visible': '2px solid #b33126' },
@@ -752,10 +530,4 @@ const styles = stylex.create({
     marginBottom: 16,
     borderRadius: 8,
   },
-  bigScore: {
-    fontSize: 56,
-    fontWeight: 700,
-    fontVariantNumeric: 'tabular-nums',
-  },
-  scoreDash: { color: '#a0aaa5' },
 });

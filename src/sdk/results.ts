@@ -1,6 +1,7 @@
 import { hc } from 'hono/client';
+import type { Board, Selection } from '../lib/results';
 import type { FpaApi } from '../server/api';
-import type { Selection, Board } from '../lib/results';
+
 const client = hc<FpaApi>('/');
 export async function loadBoard(
   input: Selection,

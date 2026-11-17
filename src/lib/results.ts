@@ -1,3 +1,5 @@
+import type { Route } from 'next';
+
 export type Selection = {
   season: string;
   gender: string;
@@ -117,3 +119,46 @@ export function gameDate(date: string) {
   }).format(new Date(date + 'T12:00:00Z'));
 }
 export const score = (n: number | null | undefined) => n ?? '—';
+
+export function competitionLabel(name: string) {
+  return name.replace(/^PO0?(\d+A?)\s*-\s*/, '');
+}
+
+// Detail ESTADO 60 is a registered result. No other code — and never the
+// calendar JOGO_ESTADO_CODIGO, which this app does not receive — means the
+// match is live or finished.
+export function matchStatus(game: Pick<Game, 'sourceState' | 'homeGoals'>) {
+  if (game.sourceState === '60') return 'Resultado registado';
+  if (game.homeGoals != null)
+    return 'Marcador publicado · atualização automática';
+  return 'Resultado por publicar';
+}
+
+export function consultationTime(iso: string | null | undefined) {
+  if (!iso) return '—';
+  return new Intl.DateTimeFormat('pt-PT', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone: 'Europe/Lisbon',
+  }).format(new Date(iso));
+}
+
+function contextQuery(s: Selection) {
+  const p = new URLSearchParams();
+  for (const k of ['season', 'gender', 'competition', 'phase'] as const) {
+    if (s[k]) p.set(k, s[k]);
+  }
+  return p;
+}
+
+export function resultsPath(s: Selection): Route {
+  const q = contextQuery(s).toString();
+  return (q ? `/?${q}` : '/') as Route;
+}
+
+export function matchPath(s: Selection): Route {
+  const id = encodeURIComponent(s.match);
+  const q = contextQuery(s).toString();
+  return (q ? `/jogo/${id}?${q}` : `/jogo/${id}`) as Route;
+}
