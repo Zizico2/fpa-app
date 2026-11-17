@@ -1,8 +1,10 @@
-import { Suspense } from 'react';
+import { redirect } from 'next/navigation';
 import { connection } from 'next/server';
+import { Suspense } from 'react';
 import { ResultsApp } from '../components/results-app';
+import { emptySelection, matchPath, readSelection } from '../lib/results';
 import { getBoard } from '../server/results';
-import { readSelection, emptySelection } from '../lib/results';
+
 async function Current({
   searchParams,
 }: {
@@ -19,6 +21,11 @@ async function Current({
         ),
       ),
     );
+  } catch {
+    return <ResultsApp initial={null} input={selection} />;
+  }
+  if (selection.match) redirect(matchPath(selection));
+  try {
     const data = await getBoard(selection);
     return <ResultsApp initial={data} input={data.selection} />;
   } catch {

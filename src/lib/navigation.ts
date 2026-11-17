@@ -6,10 +6,9 @@ export const navigationMachine = setup({
     input: {} as Selection,
     events: {} as
       | {
-          type: 'SEASON' | 'GENDER' | 'COMPETITION' | 'PHASE' | 'OPEN';
+          type: 'SEASON' | 'GENDER' | 'COMPETITION' | 'PHASE';
           value: string;
         }
-      | { type: 'CLOSE' }
       | { type: 'TAB'; value: 'results' | 'standings' },
   },
 }).createMachine({
@@ -18,10 +17,9 @@ export const navigationMachine = setup({
     selection: { ...emptySelection, ...input },
     tab: 'results',
   }),
-  initial: 'route',
+  initial: 'browsing',
   on: {
     SEASON: {
-      target: '.browsing',
       actions: assign({
         selection: ({ context, event }) => ({
           ...context.selection,
@@ -33,7 +31,6 @@ export const navigationMachine = setup({
       }),
     },
     GENDER: {
-      target: '.browsing',
       actions: assign({
         selection: ({ context, event }) => ({
           ...context.selection,
@@ -45,7 +42,6 @@ export const navigationMachine = setup({
       }),
     },
     COMPETITION: {
-      target: '.browsing',
       actions: assign({
         selection: ({ context, event }) => ({
           ...context.selection,
@@ -56,7 +52,6 @@ export const navigationMachine = setup({
       }),
     },
     PHASE: {
-      target: '.browsing',
       actions: assign({
         selection: ({ context, event }) => ({
           ...context.selection,
@@ -66,33 +61,8 @@ export const navigationMachine = setup({
       }),
     },
     TAB: { actions: assign({ tab: ({ event }) => event.value }) },
-    OPEN: {
-      target: '.match',
-      actions: assign({
-        selection: ({ context, event }) => ({
-          ...context.selection,
-          match: event.value,
-        }),
-      }),
-    },
-    CLOSE: {
-      target: '.browsing',
-      actions: assign({
-        selection: ({ context }) => ({ ...context.selection, match: '' }),
-      }),
-    },
   },
   states: {
-    route: {
-      always: [
-        {
-          guard: ({ context }) => Boolean(context.selection.match),
-          target: 'match',
-        },
-        { target: 'browsing' },
-      ],
-    },
     browsing: {},
-    match: {},
   },
 });

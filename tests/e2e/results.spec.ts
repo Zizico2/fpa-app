@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+
 test('results, standings, match sheets and narrow-screen layout', async ({
   page,
 }) => {
@@ -10,7 +11,7 @@ test('results, standings, match sheets and narrow-screen layout', async ({
     }),
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'CC LOULÉ — C VELA TAVIRA, ver jogo' }),
+    page.getByRole('link', { name: 'CC LOULÉ — C VELA TAVIRA, ver jogo' }),
   ).toBeVisible();
   await page
     .getByRole('button', { name: 'Classificação', exact: true })
@@ -20,25 +21,59 @@ test('results, standings, match sheets and narrow-screen layout', async ({
   ).toBeVisible();
   await page.getByRole('button', { name: 'Resultados', exact: true }).click();
   await page
-    .getByRole('button', { name: 'CC LOULÉ — C VELA TAVIRA, ver jogo' })
+    .getByRole('link', { name: 'CC LOULÉ — C VELA TAVIRA, ver jogo' })
     .click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page).toHaveURL(/\/jogo\/329208/);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(
-    page.getByRole('heading', {
-      name: 'CC LOULÉ — C VELA TAVIRA',
-      exact: true,
-    }),
+    page.getByRole('heading', { level: 1, name: /CC LOULÉ/ }),
   ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: /C VELA TAVIRA/ }),
+  ).toBeVisible();
+  await expect(page.getByText('Resultado registado')).toBeVisible();
+  await expect(page.getByText('1.ª parte')).toBeVisible();
   await expect(
     page.getByText('Lucas Gonçalves', { exact: true }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Voltar aos resultados' }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Ficha' }).click();
+  await expect(page.getByText('Gonçalo Santos · Árbitro 1')).toBeVisible();
+  await expect(page.getByText('Na classificação')).toBeVisible();
+  await page.getByRole('tab', { name: 'Boletim' }).click();
+  await expect(
+    page.getByText('Lucas Gonçalves', { exact: true }),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+  await page.getByRole('link', { name: 'Voltar aos resultados' }).click();
+  await expect(page).not.toHaveURL(/\/jogo\//);
+  await expect(
+    page.getByRole('heading', {
+      name: 'Campeonato Betclic Masculino',
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+test('an old match query opens the match page, and an unpublished game stays unpublished', async ({
+  page,
+}) => {
+  await page.goto(
+    '/?match=329252&season=374&gender=M&competition=10016&phase=27903',
+  );
+  await expect(page).toHaveURL(/\/jogo\/329252\?/);
+  await expect(page).not.toHaveURL(/[?&]match=/);
+  await expect(page.getByText('Resultado por publicar')).toBeVisible();
+  await expect(page.getByText('Boletim ainda não publicado.')).toHaveCount(2);
+  await expect(page.getByText(/ao vivo|fim do jogo/i)).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('—');
 });
 test('season resets competition, zones work and searching tolerates accents', async ({
   page,
@@ -46,7 +81,7 @@ test('season resets competition, zones work and searching tolerates accents', as
   await page.goto('/?season=374&gender=M&competition=10019&phase=28412');
   await page.getByRole('searchbox', { name: 'Pesquisar jogos' }).fill('loule');
   await expect(
-    page.getByRole('button', { name: 'CC LOULÉ — C VELA TAVIRA, ver jogo' }),
+    page.getByRole('link', { name: 'CC LOULÉ — C VELA TAVIRA, ver jogo' }),
   ).toBeVisible();
   await page.getByRole('combobox', { name: 'Fase / zona' }).click();
   await page
@@ -54,7 +89,7 @@ test('season resets competition, zones work and searching tolerates accents', as
     .click();
   await page.getByRole('searchbox', { name: 'Pesquisar jogos' }).fill('baltar');
   await expect(
-    page.getByRole('button', { name: 'CA BALTAR — C VELA TAVIRA, ver jogo' }),
+    page.getByRole('link', { name: 'CA BALTAR — C VELA TAVIRA, ver jogo' }),
   ).toBeVisible();
   await page.getByRole('combobox', { name: 'Época', exact: true }).click();
   await page.getByRole('option', { name: '2025/26', exact: true }).click();
@@ -68,7 +103,7 @@ test('failed refresh retains the current results and a retry recovers', async ({
 }) => {
   await page.goto('/');
   await expect(
-    page.getByRole('button', { name: 'CC LOULÉ — C VELA TAVIRA, ver jogo' }),
+    page.getByRole('link', { name: 'CC LOULÉ — C VELA TAVIRA, ver jogo' }),
   ).toBeVisible();
   await page.route('**/api/board**', (route) =>
     route.fulfill({ status: 503, body: '{}' }),
@@ -78,7 +113,7 @@ test('failed refresh retains the current results and a retry recovers', async ({
     page.getByRole('alert', { name: 'Atualização indisponível' }),
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'CC LOULÉ — C VELA TAVIRA, ver jogo' }),
+    page.getByRole('link', { name: 'CC LOULÉ — C VELA TAVIRA, ver jogo' }),
   ).toBeVisible();
   await page.unroute('**/api/board**');
   await page.getByRole('button', { name: 'Atualizar', exact: true }).click();
@@ -95,7 +130,7 @@ test('background polling fetches changed scores without reloading', async ({
   });
   await page.goto('/');
   await expect.poll(() => calls).toBeGreaterThan(0);
-  const row = page.getByRole('button', {
+  const row = page.getByRole('link', {
     name: 'CC LOULÉ — C VELA TAVIRA, ver jogo',
   });
   const scoreBefore = await row.textContent();
@@ -110,7 +145,7 @@ test('upcoming fixtures preserve unpublished scores and women catalog works', as
   await page.goto('/');
   await page.getByRole('combobox', { name: 'Mostrar', exact: true }).click();
   await page.getByRole('option', { name: 'Por disputar', exact: true }).click();
-  const future = page.getByRole('button', {
+  const future = page.getByRole('link', {
     name: 'IFC TORRENSE — C VELA TAVIRA, ver jogo',
   });
   await expect(future).toBeVisible();

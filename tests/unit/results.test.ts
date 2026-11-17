@@ -1,13 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createActor } from 'xstate';
 import { navigationMachine } from '../../src/lib/navigation';
 import {
-  readSelection,
+  consultationTime,
   emptySelection,
-  searchGames,
-  score,
   type Game,
+  matchPath,
+  matchStatus,
+  readSelection,
+  resultsPath,
+  score,
+  searchGames,
 } from '../../src/lib/results';
+
 describe('selection and scores', () => {
   it('resets dependent IDs on season and competition changes', () => {
     const actor = createActor(navigationMachine, {
@@ -19,16 +24,42 @@ describe('selection and scores', () => {
         match: '329208',
       },
     }).start();
+    expect(actor.getSnapshot().context.selection.match).toBe('329208');
+    expect(actor.getSnapshot().matches('browsing')).toBe(true);
     actor.send({ type: 'SEASON', value: '373' });
     expect(actor.getSnapshot().context.selection).toEqual({
       ...emptySelection,
       season: '373',
     });
-    actor.send({ type: 'OPEN', value: '329252' });
-    expect(actor.getSnapshot().matches('match')).toBe(true);
-    actor.send({ type: 'CLOSE' });
-    expect(actor.getSnapshot().context.selection.match).toBe('');
     actor.stop();
+  });
+  it('keeps a match on its own path and does not treat code 50 as a result', () => {
+    const selection = {
+      season: '374',
+      gender: 'M',
+      competition: '10019',
+      phase: '28412',
+      match: '329208',
+    };
+    expect(matchPath(selection)).toBe(
+      '/jogo/329208?season=374&gender=M&competition=10019&phase=28412',
+    );
+    expect(resultsPath(selection)).toBe(
+      '/?season=374&gender=M&competition=10019&phase=28412',
+    );
+    expect(matchPath({ ...emptySelection, match: '12' })).toBe(
+      '/jogo/12?gender=M',
+    );
+    expect(matchStatus({ sourceState: '60', homeGoals: 0 })).toBe(
+      'Resultado registado',
+    );
+    expect(matchStatus({ sourceState: '50', homeGoals: 0 })).toBe(
+      'Marcador publicado · atualização automática',
+    );
+    expect(matchStatus({ sourceState: '50', homeGoals: null })).toBe(
+      'Resultado por publicar',
+    );
+    expect(consultationTime('2026-11-14T17:30:00.000Z')).toBe('17:30:00');
   });
   it('validates URL identifiers and preserves missing versus zero', () => {
     expect(() => readSelection(new URLSearchParams('phase=../1'))).toThrow();

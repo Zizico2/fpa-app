@@ -2,9 +2,11 @@
 
 A simple Portuguese handball results app: seasons, men's/women's national
 competitions (including PO01, PO01A, PO02, PO03), phases/zones, recorded results,
-upcoming fixtures, standings and individual match sheets. Search teams without
-accent sensitivity; share/reload the selected season, competition, phase and match
-via URL parameters. Historical seasons are discovered from FPA, not hard-coded.
+upcoming fixtures, standings and a dedicated page for each match. Search teams
+without accent sensitivity; share/reload the selected season, competition and phase
+via URL parameters. A match lives at `/jogo/[id]`, with those filters kept in the
+query; an older `match` query redirects there. Historical seasons are discovered
+from FPA, not hard-coded.
 No other sports, news, accounts, notifications or odds.
 
 ## Stack and boundaries
@@ -13,7 +15,8 @@ Matches prociv-app/ipma-weather: Next.js 16.4.6 App Router, React 19.3.1, Bun 1.
 Astryx 0.7.13, StyleX, TanStack DB/Query live collections, Hono typed HTTP routes,
 server-only Connect/Protobuf-ES native HTTP/2 gRPC, and Node 24 on Vercel. XState v5
 with @xstate/react controls dependent navigation, resetting invalid competition,
-phase and match choices on season/gender changes and opening/closing match sheets.
+phase and match choices on season, gender and phase changes. Opening a match is a
+route, not a sheet.
 It does not duplicate the server-data cache managed by TanStack DB.
 
 ```text
@@ -45,8 +48,9 @@ backend: a static loading shell streams the request-time result view.
 
 The initial view shows recent recorded results. Use Mostrar to select future/all
 fixtures. Full phase calendars are loaded, with progressive display for long
-seasons. Tables show zero as zero and missing values as —. Match sheets include
-published period scores, squads, player goals/sanctions and assigned officials.
+seasons. Tables show zero as zero and missing values as —. Match pages include
+published period scores, squads, player goals/sanctions and assigned officials,
+with the boletim and the match record on separate tabs.
 Unpublished/empty squads and missing matches have explicit states.
 
 The browser refreshes visible results every 15 seconds and on focus; the gateway
