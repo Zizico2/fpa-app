@@ -1,0 +1,30 @@
+@import "@astryxdesign/core/reset.css";
+@import "@astryxdesign/core/astryx.css";
+@import "../themes/fpa/generated/fpa.css";
+@stylex;
+
+table th,
+table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #edf0ee;
+  text-align: right;
+  white-space: nowrap;
+}
+table th:nth-child(2),
+table tbody th {
+  text-align: left;
+  white-space: normal;
+  min-width: 130px;
+}
+table thead {
+  background: #fafbfa;
+  color: #718078;
+}
+table tbody tr:hover {
+  background: #fcf6f4;
+}
+table caption {
+  text-align: left;
+  padding: 16px;
+  color: #60736c;
+}
