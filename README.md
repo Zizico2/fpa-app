@@ -17,7 +17,12 @@ server-only Connect/Protobuf-ES native HTTP/2 gRPC, and Node 24 on Vercel. XStat
 with @xstate/react controls dependent navigation, resetting invalid competition,
 phase and match choices on season, gender and phase changes. Opening a match is a
 route, not a sheet.
-It does not duplicate the server-data cache managed by TanStack DB.
+One tab-level TanStack Query cache backs the live collections for results and
+matches. Document loads seed it with server-rendered data; client navigation
+reuses the last successful entry for the exact board or match. An entry becomes
+stale after 10 seconds and can refresh in the background while its data stays
+visible. Inactive entries expire after five minutes. Reloading the browser or
+opening a new tab starts a new cache.
 
 ```text
 browser → Next.js/Hono → fpa-gateway (tonic/Moka) → fpa-proxy (tonic/Progenitor) → FPA
@@ -68,10 +73,9 @@ in-play delay/coverage is unverified. No running clock, streaming event feed or
 second-by-second accuracy is claimed. Calendar code 50 is not used to decide that
 a match has finished. Source-local dates/times remain local strings.
 
-Changing filters creates an isolated DB/query scope; stale results from another
-selection are never displayed under a new competition title. TanStack manages
-subscriptions and cleanup for inactive scopes. National catalog discovery is
-season/gender-specific; other seasons can contain different competitions and phases.
+Filter selections have separate cache keys. Leaving a view stops its polling
+without discarding its data. National catalog discovery is season/gender-specific;
+other seasons can contain different competitions and phases.
 
 ## Verify
 

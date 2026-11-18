@@ -6,26 +6,9 @@ import {
   MatchPage,
   MatchPending,
 } from '../../../components/match-page';
-import {
-  emptySelection,
-  isFpaId,
-  type MatchContext,
-  type MatchRecord,
-  readSelection,
-} from '../../../lib/results';
+import { emptySelection, isFpaId, readSelection } from '../../../lib/results';
+import { documentSnapshot } from '../../../server/document-snapshot';
 import { getMatch, getMatchContext } from '../../../server/results';
-
-async function Sheet({
-  id,
-  match,
-  context,
-}: {
-  id: string;
-  match: Promise<MatchRecord | null>;
-  context: Promise<MatchContext | null> | null;
-}) {
-  return <MatchPage id={id} initial={await match} context={context} />;
-}
 
 async function Current({
   params,
@@ -46,7 +29,7 @@ async function Current({
   const renderSignal = cacheSignal();
   const signal = renderSignal instanceof AbortSignal ? renderSignal : undefined;
   const connected = connection();
-  const match = connected.then(() => getMatch(id, signal).catch(() => null));
+  const match = documentSnapshot((signal) => getMatch(id, signal));
   const raw = await searchParams;
   let selection = { ...emptySelection, match: id };
   try {
@@ -68,7 +51,7 @@ async function Current({
     <>
       <BackLink selection={selection} />
       <Suspense fallback={<MatchPending />}>
-        <Sheet id={id} match={match} context={context} />
+        <MatchPage key={id} id={id} initial={match} context={context} />
       </Suspense>
     </>
   );

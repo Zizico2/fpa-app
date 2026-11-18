@@ -129,10 +129,10 @@ test('background polling fetches changed scores without reloading', async ({
     if (r.url().includes('/api/board') && r.ok()) calls++;
   });
   await page.goto('/');
-  await expect.poll(() => calls).toBeGreaterThan(0);
   const row = page.getByRole('link', {
     name: 'CC LOULÉ — C VELA TAVIRA, ver jogo',
   });
+  await expect(row).toBeVisible();
   const scoreBefore = await row.textContent();
   const before = calls;
   await expect.poll(() => calls, { timeout: 22000 }).toBeGreaterThan(before);
