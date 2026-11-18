@@ -6,6 +6,7 @@ import { Tab, TabList } from '@astryxdesign/core/TabList';
 import { Text } from '@astryxdesign/core/Text';
 import * as stylex from '@stylexjs/stylex';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
   type Board,
@@ -466,10 +467,10 @@ function Squad({
 
 function BackLink({ selection }: { selection: Selection }) {
   return (
-    <a href={resultsPath(selection)} {...stylex.props(styles.back)}>
+    <Link href={resultsPath(selection)} {...stylex.props(styles.back)}>
       <ArrowLeft size={16} aria-hidden="true" />
       Voltar aos resultados
-    </a>
+    </Link>
   );
 }
 

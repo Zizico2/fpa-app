@@ -1,7 +1,7 @@
 'use client';
 import type { QueryClient } from '@tanstack/query-core';
 import { DbProvider, useDbClient, useLiveQuery } from '@tanstack/react-db';
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { createBoardScope } from '../lib/collections';
 import type { Board, Selection } from '../lib/results';
 import { loadBoard } from '../sdk/results';
@@ -20,16 +20,9 @@ export function DataScope({
   const [scope] = useState(() =>
     createBoardScope((signal) => loadBoard(selection, signal)),
   );
-  const teardown = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (teardown.current) clearTimeout(teardown.current);
-    return () => {
-      teardown.current = setTimeout(() => {
-        void scope.db.cleanup();
-        scope.queryClient.clear();
-      }, 0);
-    };
-  }, [scope]);
+  // Next can hide this route and clean up its effects without unmounting it.
+  // Let TanStack unsubscribe and collect unused queries without disposing the
+  // DbClient that the preserved page needs when it becomes visible again.
   return (
     <DbProvider client={scope.db}>
       <ScopeContext.Provider value={scope}>{children}</ScopeContext.Provider>

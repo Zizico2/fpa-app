@@ -188,6 +188,6 @@ const server = createServer(
     },
   }),
 );
-server.listen(50211, '127.0.0.1');
+server.listen(Number(process.env.FPA_FIXTURE_PORT ?? '50211'), '127.0.0.1');
 for (const sig of ['SIGTERM', 'SIGINT'])
   process.on(sig, () => server.close(() => process.exit(0)));

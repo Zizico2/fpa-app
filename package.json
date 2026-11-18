@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:production": "playwright test --config playwright.production.config.ts",
     "proto:generate": "bun scripts/generate-proto.ts",
     "check:client": "bun scripts/check-client-bundle.ts",
     "theme:build": "bun run astryx theme build src/themes/fpa/fpaTheme.ts --out src/themes/fpa/generated/fpa.css",

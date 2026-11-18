@@ -8,6 +8,8 @@ import { TextInput } from '@astryxdesign/core/TextInput';
 import * as stylex from '@stylexjs/stylex';
 import { useMachine } from '@xstate/react';
 import { Activity, ArrowUpRight, RefreshCw, Search } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { navigationMachine } from '../lib/navigation';
 import {
@@ -24,13 +26,30 @@ import {
 } from '../lib/results';
 import { DataScope, useBoard } from './data-scope';
 import { SiteHeader } from './site-header';
-export function ResultsApp({
-  initial,
-  input,
-}: {
+
+type ResultsProps = {
   initial: Board | null;
   input: Selection;
-}) {
+};
+
+export function ResultsApp(props: ResultsProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isHome = pathname === '/' && searchParams.size === 0;
+  const [navigation, setNavigation] = useState({ isHome, homeVisits: 0 });
+  if (isHome !== navigation.isHome) {
+    setNavigation({
+      isHome,
+      homeVisits: navigation.homeVisits + Number(isHome),
+    });
+  }
+  // A client navigation can reuse the page, and XState only reads its input
+  // when the actor starts. Reset on a new server selection or a visit to `/`.
+  const key = `${selectionKey(props.input)}:${navigation.homeVisits}`;
+  return <ResultsSelection key={key} {...props} />;
+}
+
+function ResultsSelection({ initial, input }: ResultsProps) {
   const [state, send] = useMachine(navigationMachine, { input });
   const selection = state.context.selection;
   const [search, setSearch] = useState('');
@@ -316,7 +335,7 @@ function BoardPanel({
                           {gameDate(g.date)}
                         </div>
                       )}
-                      <a
+                      <Link
                         href={matchPath({
                           ...(board?.selection ?? selection),
                           match: g.id,
@@ -339,7 +358,7 @@ function BoardPanel({
                           <span>{score(g.awayGoals)}</span>
                         </span>
                         <ArrowUpRight size={16} aria-hidden="true" />
-                      </a>
+                      </Link>
                     </div>
                   ))}
                 </div>
