@@ -220,6 +220,30 @@ test('keeps the last sheet on a gRPC refresh failure and cancels a pending refre
     .toBeGreaterThan(before.cancelled);
 });
 
+test('retries a failed first match load with one request', async ({
+  page,
+  control,
+}) => {
+  const id = '329213';
+  const key = `getMatch:${id}`;
+  await control(key, 'fail');
+  await page.goto(`/jogo/${id}`);
+  await expect(
+    page.getByRole('heading', { name: 'Jogo indisponível' }),
+  ).toBeVisible();
+  const retry = page.getByRole('button', { name: 'Tentar novamente' });
+  await expect(retry).toBeEnabled();
+
+  const before = await control(key, 'pass');
+  await retry.click();
+  await expect(page.getByText(player, { exact: true })).toBeVisible();
+  await expect(retry).toHaveCount(0);
+  await expect(
+    page.getByRole('alert', { name: 'Atualização indisponível' }),
+  ).toHaveCount(0);
+  expect((await control(key)).calls).toBe(before.calls + 1);
+});
+
 test('represents a genuine missing match as not found', async ({
   page,
   request,

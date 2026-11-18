@@ -29,6 +29,5 @@ export function createResourceScope<T extends Row>(loader: Loader<T>) {
     db,
     queryClient,
     collection,
-    queryKey: [id],
   };
 }

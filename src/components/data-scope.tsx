@@ -69,41 +69,33 @@ function useResource<T extends { id: string }>(
   initial: T | null,
 ) {
   if (!resource) throw new Error('Os dados não estão disponíveis');
-  const scope = resource;
-  const { db, queryClient, queryKey, collection } = scope;
+  const { db, queryClient, collection } = resource;
   const source = db.collection(collection);
   // Direct subscriptions start sync immediately. The server already supplies
   // the initial value; only the browser should start the HTTP loader.
-  const { data } = useLiveQuery(() =>
+  const { data, isLoadingError, isSyncError } = useLiveQuery(() =>
     typeof window === 'undefined' ? undefined : source,
   );
   const value = data?.[0] ?? initial;
-  const [error, setError] = useState('');
+  const error =
+    isLoadingError || isSyncError
+      ? value
+        ? 'A atualização falhou. A última informação disponível foi mantida.'
+        : 'Não foi possível atualizar. Tente novamente.'
+      : '';
   const [refreshing, setRefreshing] = useState(false);
   useEffect(() => {
     queryClient.mount();
-    const update = () =>
-      setError(
-        queryClient.getQueryState(queryKey)?.status === 'error'
-          ? 'A atualização falhou. A última informação disponível foi mantida.'
-          : '',
-      );
-    update();
-    const unsubscribe = queryClient.getQueryCache().subscribe(update);
-
-    return () => {
-      unsubscribe();
-      queryClient.unmount();
-    };
-  }, [queryClient, queryKey]);
+    return () => queryClient.unmount();
+  }, [queryClient]);
   async function refresh() {
     setRefreshing(true);
     try {
-      // A failed first load must not prevent an explicit retry.
-      await source.preload().catch(() => undefined);
-      await source.utils.refetch({ throwOnError: true });
+      // A failed initial sync needs a new run; a refresh can keep the ready one.
+      if (isLoadingError) await source.reload();
+      else await source.utils.refetch();
     } catch {
-      setError('Não foi possível atualizar. Tente novamente.');
+      // The live query reports failures; navigation can also cancel the request.
     } finally {
       setRefreshing(false);
     }
