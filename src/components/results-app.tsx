@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { navigationMachine } from '../lib/navigation';
+import type { Snapshot } from '../lib/resource-cache';
 import {
   type Board,
   competitionLabel,
@@ -24,15 +25,17 @@ import {
   searchGames,
   selectionKey,
 } from '../lib/results';
-import { DataScope, useBoard } from './data-scope';
+import { useBoard, useBoardInitial } from './resources';
 import { SiteHeader } from './site-header';
 
 type ResultsProps = {
-  initial: Board | null;
+  initial: Promise<Snapshot<Board> | null> | null;
   input: Selection;
 };
 
 export function ResultsApp(props: ResultsProps) {
+  const initial = useBoardInitial(props.input, props.initial);
+  const input = initial?.value.selection ?? props.input;
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const isHome = pathname === '/' && searchParams.size === 0;
@@ -45,11 +48,17 @@ export function ResultsApp(props: ResultsProps) {
   }
   // A client navigation can reuse the page, and XState only reads its input
   // when the actor starts. Reset on a new server selection or a visit to `/`.
-  const key = `${selectionKey(props.input)}:${navigation.homeVisits}`;
-  return <ResultsSelection key={key} {...props} />;
+  const key = `${selectionKey(input)}:${navigation.homeVisits}`;
+  return <ResultsSelection key={key} initial={initial} input={input} />;
 }
 
-function ResultsSelection({ initial, input }: ResultsProps) {
+function ResultsSelection({
+  initial,
+  input,
+}: {
+  initial: Snapshot<Board> | null;
+  input: Selection;
+}) {
   const [state, send] = useMachine(navigationMachine, { input });
   const selection = state.context.selection;
   const [search, setSearch] = useState('');
@@ -59,22 +68,18 @@ function ResultsSelection({ initial, input }: ResultsProps) {
     const current = `${window.location.pathname}${window.location.search}`;
     if (current !== path) window.history.replaceState(null, '', path);
   }, [selection]);
-  const key = selectionKey(selection);
-  const initialForScope =
-    initial && selectionKey(initial.selection) === key ? initial : null;
   return (
-    <DataScope key={key} selection={selection}>
-      <BoardPanel
-        initial={initialForScope}
-        selection={selection}
-        tab={state.context.tab}
-        send={send}
-        search={search}
-        setSearch={setSearch}
-        mode={mode}
-        setMode={setMode}
-      />
-    </DataScope>
+    <BoardPanel
+      key={selectionKey(selection)}
+      initial={initial}
+      selection={selection}
+      tab={state.context.tab}
+      send={send}
+      search={search}
+      setSearch={setSearch}
+      mode={mode}
+      setMode={setMode}
+    />
   );
 }
 type Send = (
@@ -95,7 +100,7 @@ function BoardPanel({
   mode,
   setMode,
 }: {
-  initial: Board | null;
+  initial: Snapshot<Board> | null;
   selection: Selection;
   tab: string;
   send: Send;
@@ -104,7 +109,7 @@ function BoardPanel({
   mode: string;
   setMode: (s: string) => void;
 }) {
-  const { board, error, refreshing, refresh } = useBoard(initial);
+  const { board, error, refreshing, refresh } = useBoard(selection, initial);
   const [limit, setLimit] = useState(80);
   const rows = searchGames(board?.games ?? [], search, mode);
   const comp = board?.competitions.find(

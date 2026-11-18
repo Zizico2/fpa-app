@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
-import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { ResultsApp } from '../components/results-app';
 import { emptySelection, matchPath, readSelection } from '../lib/results';
+import { documentSnapshot } from '../server/document-snapshot';
 import { getBoard } from '../server/results';
 
 async function Current({
@@ -10,7 +10,6 @@ async function Current({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await connection();
   const raw = await searchParams;
   let selection = { ...emptySelection };
   try {
@@ -25,12 +24,12 @@ async function Current({
     return <ResultsApp initial={null} input={selection} />;
   }
   if (selection.match) redirect(matchPath(selection));
-  try {
-    const data = await getBoard(selection);
-    return <ResultsApp initial={data} input={data.selection} />;
-  } catch {
-    return <ResultsApp initial={null} input={selection} />;
-  }
+  return (
+    <ResultsApp
+      initial={documentSnapshot((signal) => getBoard(selection, signal))}
+      input={selection}
+    />
+  );
 }
 export default function Page({
   searchParams,

@@ -8,6 +8,7 @@ import * as stylex from '@stylexjs/stylex';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense, use, useEffect, useState } from 'react';
+import type { Snapshot } from '../lib/resource-cache';
 import {
   competitionLabel,
   consultationTime,
@@ -22,7 +23,7 @@ import {
   type Selection,
   score,
 } from '../lib/results';
-import { MatchScope, useMatch } from './data-scope';
+import { useMatch } from './resources';
 import { SiteHeader } from './site-header';
 
 export function MatchLayout({ children }: { children: React.ReactNode }) {
@@ -52,28 +53,11 @@ export function MatchPage({
   id,
   context,
 }: {
-  initial: MatchRecord | null;
+  initial: Promise<Snapshot<MatchRecord> | null> | null;
   id: string;
   context: Promise<MatchContext | null> | null;
 }) {
-  return (
-    <MatchScope key={id} id={id}>
-      <MatchView
-        initial={initial?.id === id ? initial : null}
-        context={context}
-      />
-    </MatchScope>
-  );
-}
-
-function MatchView({
-  initial,
-  context,
-}: {
-  initial: MatchRecord | null;
-  context: Promise<MatchContext | null> | null;
-}) {
-  const { value: match, error, refreshing, refresh } = useMatch(initial);
+  const { value: match, error, refreshing, refresh } = useMatch(id, initial);
   const detail = match?.status === 'found' ? match.detail : null;
   const [tab, setTab] = useState('boletim');
   useEffect(() => {
