@@ -11,6 +11,7 @@ import type {
   Person,
   Selection,
 } from '../lib/results';
+import { competitionNames } from '../lib/results';
 import type { Match, Participant } from './gen/fpa/v1/results_pb';
 import { ResultsService } from './gen/fpa/v1/results_pb';
 
@@ -172,8 +173,8 @@ export async function getMatchContext(
   signal?: AbortSignal,
 ): Promise<MatchContext | null> {
   if (!input.competition) return null;
-  const { selection, seasons, competitions, phases, data } =
-    await getPhaseSelection(input, signal);
+  const phase = await getPhaseSelection(input, signal);
+  const { data } = phase;
   const match = data?.matches.find((row) => row.id === input.match);
   if (!data || !match) return null;
 
@@ -184,10 +185,7 @@ export async function getMatchContext(
     return rows.length === 1 ? rows : [];
   });
   return {
-    seasonName: seasons.find((row) => row.id === selection.season)?.name ?? '',
-    competitionName:
-      competitions.find((row) => row.id === selection.competition)?.name ?? '',
-    phaseName: phases.find((row) => row.id === selection.phase)?.name ?? '',
+    ...competitionNames(phase),
     standings: related.map((row) => ({
       teamId: row.teamId,
       name: row.name,

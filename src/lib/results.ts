@@ -79,6 +79,21 @@ export type Board = {
   standings: Standing[];
   fetchedAt: string | null;
 };
+
+export function competitionNames({
+  selection,
+  seasons,
+  competitions,
+  phases,
+}: Pick<Board, 'selection' | 'seasons' | 'competitions' | 'phases'>) {
+  return {
+    seasonName: seasons.find((row) => row.id === selection.season)?.name ?? '',
+    competitionName:
+      competitions.find((row) => row.id === selection.competition)?.name ?? '',
+    phaseName: phases.find((row) => row.id === selection.phase)?.name ?? '',
+  };
+}
+
 export const isFpaId = (value: string) => /^[1-9][0-9]{0,11}$/.test(value);
 export function selectionKey(s: Selection) {
   return [s.season, s.gender, s.competition, s.phase, s.match].join(':');

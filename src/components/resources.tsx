@@ -39,18 +39,22 @@ function useResources() {
   return resources;
 }
 
+export function useBoardSnapshot(input: Selection) {
+  return useResources().boardSnapshot(input);
+}
+
 export function useBoardInitial(
   input: Selection,
   initial: Promise<Snapshot<Board> | null> | null,
 ) {
-  const cached = useResources().boardSnapshot(input);
+  const cached = useBoardSnapshot(input);
   if (cached) return cached;
   const seed = usableSeed(initial ? use(initial) : null);
   return seed && boardMatches(input, seed.value) ? seed : null;
 }
 
 export function useBoard(input: Selection, initial: Snapshot<Board> | null) {
-  const cached = useResources().boardSnapshot(input);
+  const cached = useBoardSnapshot(input);
   const seed =
     cached ??
     (initial && boardMatches(input, initial.value)

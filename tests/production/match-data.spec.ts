@@ -48,7 +48,7 @@ const withContext = (id: string, competition: string, gender = 'M') =>
   `/jogo/${id}?season=374&gender=${gender}&competition=${competition}&phase=27903`;
 const player = 'Lucas Gonçalves';
 
-test('shows the score and sheet while the phase is held, then polls the sheet independently', async ({
+test('shows cached competition labels and loads the sheet independently of the phase', async ({
   page,
   control,
 }) => {
@@ -81,17 +81,21 @@ test('shows the score and sheet while the phase is held, then polls the sheet in
   await expect.poll(async () => (await control(phase)).calls).toBe(1);
   const competition = page
     .getByRole('region', { name: /22.*21/ })
-    .getByText(/fase lenta/);
+    .getByText('Competiçao de teste — fase lenta · 1a Fase · 2026/27', {
+      exact: true,
+    });
   await expect(
     page.getByRole('heading', { level: 1, name: /22.*21/ }),
   ).toBeVisible();
   await expect(page.getByText(player, { exact: true })).toBeVisible();
   expect(await control(phase)).toEqual({ calls: 1, cancelled: 0 });
-  await expect(competition).toHaveCount(0);
-
-  await control(phase, 'pass');
   await expect(competition).toBeVisible();
   await page.getByRole('tab', { name: 'Ficha' }).click();
+  await expect(
+    page.getByRole('table', { name: 'Na classificação' }),
+  ).toHaveCount(0);
+
+  await control(phase, 'pass');
   await expect(
     page.getByRole('table', { name: 'Na classificação' }),
   ).toBeVisible();
