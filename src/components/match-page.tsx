@@ -7,84 +7,74 @@ import { Text } from '@astryxdesign/core/Text';
 import * as stylex from '@stylexjs/stylex';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { Suspense, use, useEffect, useState } from 'react';
 import {
-  type Board,
   competitionLabel,
   consultationTime,
   type Detail,
   type Game,
   gameDate,
+  type MatchContext,
+  type MatchRecord,
   matchStatus,
   type Person,
   resultsPath,
   type Selection,
   score,
-  selectionKey,
 } from '../lib/results';
-import { DataScope, useBoard } from './data-scope';
+import { MatchScope, useMatch } from './data-scope';
 import { SiteHeader } from './site-header';
 
-export function MatchPending() {
+export function MatchLayout({ children }: { children: React.ReactNode }) {
   return (
     <div {...stylex.props(styles.app)}>
       <SiteHeader />
-      <main {...stylex.props(styles.main)}>
-        <p role="status">A consultar o jogo…</p>
-      </main>
+      <main {...stylex.props(styles.main)}>{children}</main>
     </div>
+  );
+}
+
+export function MatchPending() {
+  return <p role="status">A consultar o jogo…</p>;
+}
+
+export function InvalidMatch() {
+  return (
+    <>
+      <Heading level={1}>Jogo não encontrado.</Heading>
+      <Text color="secondary">Este endereço não corresponde a um jogo.</Text>
+    </>
   );
 }
 
 export function MatchPage({
   initial,
-  input,
-  named,
-  invalid,
+  id,
+  context,
 }: {
-  initial: Board | null;
-  input: Selection;
-  named: boolean;
-  invalid?: boolean;
+  initial: MatchRecord | null;
+  id: string;
+  context: Promise<MatchContext | null> | null;
 }) {
-  const key = selectionKey(input);
-  const initialForScope =
-    initial && selectionKey(initial.selection) === key ? initial : null;
   return (
-    <div {...stylex.props(styles.app)}>
-      <SiteHeader />
-      {invalid ? (
-        <main {...stylex.props(styles.main)}>
-          <BackLink selection={input} />
-          <Heading level={1}>Jogo não encontrado.</Heading>
-          <Text color="secondary">
-            Este endereço não corresponde a um jogo.
-          </Text>
-        </main>
-      ) : (
-        <DataScope key={key} selection={input}>
-          <MatchView
-            initial={initialForScope}
-            selection={input}
-            named={named}
-          />
-        </DataScope>
-      )}
-    </div>
+    <MatchScope key={id} id={id}>
+      <MatchView
+        initial={initial?.id === id ? initial : null}
+        context={context}
+      />
+    </MatchScope>
   );
 }
 
 function MatchView({
   initial,
-  selection,
-  named,
+  context,
 }: {
-  initial: Board | null;
-  selection: Selection;
-  named: boolean;
+  initial: MatchRecord | null;
+  context: Promise<MatchContext | null> | null;
 }) {
-  const { board, error, refreshing, refresh } = useBoard(initial);
-  const detail = board?.detail ?? null;
+  const { value: match, error, refreshing, refresh } = useMatch(initial);
+  const detail = match?.status === 'found' ? match.detail : null;
   const [tab, setTab] = useState('boletim');
   useEffect(() => {
     if (!detail) return;
@@ -94,11 +84,9 @@ function MatchView({
       document.title = previous;
     };
   }, [detail]);
-  const back = board?.selection ?? selection;
   return (
-    <main {...stylex.props(styles.main)}>
-      <BackLink selection={back} />
-      {error && (
+    <>
+      {error && detail && (
         <div
           role="alert"
           aria-label="Atualização indisponível"
@@ -107,30 +95,16 @@ function MatchView({
           {error}
         </div>
       )}
-      {!board ? (
+      {!detail ? (
         <div role="status" {...stylex.props(styles.pending)}>
           <Heading level={1}>
-            {error ? 'Jogo indisponível' : 'A consultar o jogo…'}
+            {match?.status === 'not-found'
+              ? 'Jogo não encontrado.'
+              : error
+                ? 'Jogo indisponível'
+                : 'A consultar o jogo…'}
           </Heading>
-          <Text color="secondary">
-            {error
-              ? 'Use Atualizar para voltar a tentar.'
-              : 'A preparar o boletim.'}
-          </Text>
           {error && (
-            <Button
-              label="Tentar novamente"
-              onClick={refresh}
-              isDisabled={refreshing}
-            />
-          )}
-        </div>
-      ) : !detail ? (
-        <div role="status" {...stylex.props(styles.pending)}>
-          <Heading level={1}>
-            {board.detailError ?? 'A consultar o jogo…'}
-          </Heading>
-          {board.detailError && (
             <Button
               label="Tentar novamente"
               onClick={refresh}
@@ -140,61 +114,43 @@ function MatchView({
         </div>
       ) : (
         <MatchBody
-          board={board}
           detail={detail}
-          named={named}
+          context={context}
           tab={tab}
           onTab={setTab}
           refreshing={refreshing}
           refresh={refresh}
         />
       )}
-    </main>
+    </>
   );
 }
 
 function MatchBody({
-  board,
   detail,
-  named,
+  context,
   tab,
   onTab,
   refreshing,
   refresh,
 }: {
-  board: Board;
   detail: Detail;
-  named: boolean;
+  context: Promise<MatchContext | null> | null;
   tab: string;
   onTab: (value: string) => void;
   refreshing: boolean;
   refresh: () => void;
 }) {
   const g = detail.game;
-  const comp = board.competitions.find(
-    (c) => c.id === board.selection.competition,
-  );
-  const phase = board.phases.find((p) => p.id === board.selection.phase);
-  const season = board.seasons.find((s) => s.id === board.selection.season);
-  const checked = consultationTime(detail.fetchedAt ?? board.fetchedAt);
-  const homeRow = board.standings.find((r) => r.name === g.home);
-  const awayRow = board.standings.find((r) => r.name === g.away);
-  const related = [homeRow, awayRow].filter((r) => r != null);
+  const checked = consultationTime(detail.fetchedAt);
   return (
     <>
-      {named && (
-        <div {...stylex.props(styles.eyebrow)}>
-          PORTUGAL / ANDEBOL / {season?.name ?? 'JOGO'}
-        </div>
-      )}
       <section aria-labelledby="marcador" {...stylex.props(styles.hero)}>
         <div {...stylex.props(styles.accent)} aria-hidden="true" />
-        {named && (comp || phase) && (
-          <p {...stylex.props(styles.context)}>
-            {[comp ? competitionLabel(comp.name) : '', phase?.name ?? '']
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
+        {context && (
+          <Suspense fallback={null}>
+            <CompetitionLabel context={context} />
+          </Suspense>
         )}
         <p {...stylex.props(styles.when)}>{whenLine(g)}</p>
         <h1 id="marcador" {...stylex.props(styles.matchup)}>
@@ -340,41 +296,10 @@ function MatchBody({
           ) : (
             <Text color="secondary">Ainda não há oficiais publicados.</Text>
           )}
-          {related.length > 0 && (
-            <div {...stylex.props(styles.standings)}>
-              <Heading level={2} id="classificacao-jogo">
-                Na classificação
-              </Heading>
-              <Text color="secondary">
-                As duas equipas nesta fase, com os números já publicados.
-              </Text>
-              <div {...stylex.props(styles.tableScroll)}>
-                <table
-                  {...stylex.props(styles.table)}
-                  aria-labelledby="classificacao-jogo"
-                >
-                  <thead>
-                    <tr>
-                      {['#', 'Equipa', 'J', 'Pts'].map((h) => (
-                        <th key={h} scope="col">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {related.map((r) => (
-                      <tr key={r.teamId}>
-                        <td>{score(r.position)}</td>
-                        <th scope="row">{r.name}</th>
-                        <td>{score(r.played)}</td>
-                        <td>{score(r.points)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          {context && (
+            <Suspense fallback={null}>
+              <MatchStandings context={context} />
+            </Suspense>
           )}
           <p {...stylex.props(styles.sourceRow)}>
             <a
@@ -395,6 +320,67 @@ function MatchBody({
         </Text>
       </footer>
     </>
+  );
+}
+
+function CompetitionLabel({
+  context,
+}: {
+  context: Promise<MatchContext | null>;
+}) {
+  const info = use(context);
+  if (!info) return null;
+  return (
+    <p {...stylex.props(styles.context)}>
+      {[competitionLabel(info.competitionName), info.phaseName, info.seasonName]
+        .filter(Boolean)
+        .join(' · ')}
+    </p>
+  );
+}
+
+function MatchStandings({
+  context,
+}: {
+  context: Promise<MatchContext | null>;
+}) {
+  const info = use(context);
+  if (!info?.standings.length) return null;
+  return (
+    <div {...stylex.props(styles.standings)}>
+      <Heading level={2} id="classificacao-jogo">
+        Na classificação
+      </Heading>
+      <Text color="secondary">
+        As duas equipas nesta fase, com os números já publicados.
+      </Text>
+      <div {...stylex.props(styles.tableScroll)}>
+        <table
+          {...stylex.props(styles.table)}
+          aria-labelledby="classificacao-jogo"
+        >
+          <thead>
+            <tr>
+              {['#', 'Equipa', 'J', 'Pts'].map((h) => (
+                <th key={h} scope="col">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {info.standings.map((r) => (
+              <tr key={r.teamId}>
+                <td>{score(r.position)}</td>
+                <th scope="row">{r.name}</th>
+                <td>{score(r.played)}</td>
+                <td>{score(r.points)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -465,7 +451,7 @@ function Squad({
   );
 }
 
-function BackLink({ selection }: { selection: Selection }) {
+export function BackLink({ selection }: { selection: Selection }) {
   return (
     <Link href={resultsPath(selection)} {...stylex.props(styles.back)}>
       <ArrowLeft size={16} aria-hidden="true" />
@@ -503,13 +489,6 @@ const styles = stylex.create({
     outline: { default: 'none', ':focus-visible': '2px solid #b33126' },
     outlineOffset: 3,
     borderRadius: 6,
-  },
-  eyebrow: {
-    fontSize: 10,
-    letterSpacing: '0.12em',
-    color: '#718078',
-    marginBottom: 12,
-    fontWeight: 700,
   },
   hero: {
     position: 'relative',

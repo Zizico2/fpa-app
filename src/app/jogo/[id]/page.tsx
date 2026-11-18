@@ -1,8 +1,31 @@
 import { connection } from 'next/server';
-import { Suspense } from 'react';
-import { MatchPage, MatchPending } from '../../../components/match-page';
-import { emptySelection, readSelection } from '../../../lib/results';
-import { getBoard } from '../../../server/results';
+import { cacheSignal, Suspense } from 'react';
+import {
+  BackLink,
+  InvalidMatch,
+  MatchPage,
+  MatchPending,
+} from '../../../components/match-page';
+import {
+  emptySelection,
+  isFpaId,
+  type MatchContext,
+  type MatchRecord,
+  readSelection,
+} from '../../../lib/results';
+import { getMatch, getMatchContext } from '../../../server/results';
+
+async function Sheet({
+  id,
+  match,
+  context,
+}: {
+  id: string;
+  match: Promise<MatchRecord | null>;
+  context: Promise<MatchContext | null> | null;
+}) {
+  return <MatchPage id={id} initial={await match} context={context} />;
+}
 
 async function Current({
   params,
@@ -11,16 +34,21 @@ async function Current({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await connection();
   const { id } = await params;
-  if (!/^[1-9][0-9]{0,11}$/.test(id)) {
+  if (!isFpaId(id)) {
     return (
-      <MatchPage initial={null} input={emptySelection} named={false} invalid />
+      <>
+        <BackLink selection={emptySelection} />
+        <InvalidMatch />
+      </>
     );
   }
+  const renderSignal = cacheSignal();
+  const signal = renderSignal instanceof AbortSignal ? renderSignal : undefined;
+  const connected = connection();
+  const match = connected.then(() => getMatch(id, signal).catch(() => null));
   const raw = await searchParams;
   let selection = { ...emptySelection, match: id };
-  let named = false;
   try {
     const requested = readSelection(
       new URLSearchParams(
@@ -29,17 +57,21 @@ async function Current({
         ),
       ),
     );
-    named = Boolean(requested.competition);
     selection = { ...requested, match: id };
   } catch {
-    selection = { ...emptySelection, match: id };
+    // The URL still names a valid match. Ignore malformed optional context.
   }
-  try {
-    const data = await getBoard(selection);
-    return <MatchPage initial={data} input={data.selection} named={named} />;
-  } catch {
-    return <MatchPage initial={null} input={selection} named={named} />;
-  }
+  const context = selection.competition
+    ? connected.then(() => getMatchContext(selection, signal).catch(() => null))
+    : null;
+  return (
+    <>
+      <BackLink selection={selection} />
+      <Suspense fallback={<MatchPending />}>
+        <Sheet id={id} match={match} context={context} />
+      </Suspense>
+    </>
+  );
 }
 
 export default function Page({

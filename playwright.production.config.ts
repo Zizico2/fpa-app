@@ -25,6 +25,7 @@ export default defineConfig({
       url: baseURL,
       env: {
         FPA_GRPC_URL: `http://127.0.0.1:${grpcPort}`,
+        FPA_RPC_BUDGET_MS: '3000',
         NEXT_DIST_DIR: 'build/e2e-production',
         FPA_E2E_INSTANT: '1',
       },
