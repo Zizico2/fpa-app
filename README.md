@@ -84,8 +84,9 @@ rtk bun run astryx:doctor
 Desktop/mobile Playwright tests cover selectors, history/zone changes, search,
 results, standings, sheets, failure/retry retention, automatic polling and
 horizontal overflow. The dev suite uses gRPC port 50211, Next port 3201 and
-`build/e2e`. The production suite verifies client navigation and the prefetched
-match shell using gRPC port 50212, Next port 3202 and `build/e2e-production`.
+`build/e2e`. The production suite verifies client navigation, the prefetched
+match shell, and prefetching the match sheet on hover or keyboard focus. It uses
+gRPC port 50212, Next port 3202 and `build/e2e-production`.
 Next's instant navigation test API is enabled only for that fixture build.
 Live browser QA additionally exercises the actual federation →
 proxy → gateway → app path. `test:e2e:deployed` accepts DEPLOYED_TEST_URL and the
