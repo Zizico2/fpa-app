@@ -11,6 +11,7 @@ import { Suspense, use, useEffect, useState } from 'react';
 import type { Snapshot } from '../lib/resource-cache';
 import {
   competitionLabel,
+  competitionNames,
   consultationTime,
   type Detail,
   type Game,
@@ -23,7 +24,7 @@ import {
   type Selection,
   score,
 } from '../lib/results';
-import { useMatch } from './resources';
+import { useBoardSnapshot, useMatch } from './resources';
 import { SiteHeader } from './site-header';
 
 export function MatchLayout({ children }: { children: React.ReactNode }) {
@@ -51,10 +52,12 @@ export function InvalidMatch() {
 export function MatchPage({
   initial,
   id,
+  selection,
   context,
 }: {
   initial: Promise<Snapshot<MatchRecord> | null> | null;
   id: string;
+  selection: Selection;
   context: Promise<MatchContext | null> | null;
 }) {
   const { value: match, error, refreshing, refresh } = useMatch(id, initial);
@@ -99,6 +102,7 @@ export function MatchPage({
       ) : (
         <MatchBody
           detail={detail}
+          selection={selection}
           context={context}
           tab={tab}
           onTab={setTab}
@@ -112,6 +116,7 @@ export function MatchPage({
 
 function MatchBody({
   detail,
+  selection,
   context,
   tab,
   onTab,
@@ -119,6 +124,7 @@ function MatchBody({
   refresh,
 }: {
   detail: Detail;
+  selection: Selection;
   context: Promise<MatchContext | null> | null;
   tab: string;
   onTab: (value: string) => void;
@@ -133,7 +139,7 @@ function MatchBody({
         <div {...stylex.props(styles.accent)} aria-hidden="true" />
         {context && (
           <Suspense fallback={null}>
-            <CompetitionLabel context={context} />
+            <CompetitionLabel selection={selection} context={context} />
           </Suspense>
         )}
         <p {...stylex.props(styles.when)}>{whenLine(g)}</p>
@@ -308,11 +314,16 @@ function MatchBody({
 }
 
 function CompetitionLabel({
+  selection,
   context,
 }: {
+  selection: Selection;
   context: Promise<MatchContext | null>;
 }) {
-  const info = use(context);
+  const board = useBoardSnapshot(selection)?.value;
+  const info = board?.games.some((game) => game.id === selection.match)
+    ? competitionNames(board)
+    : use(context);
   if (!info) return null;
   return (
     <p {...stylex.props(styles.context)}>

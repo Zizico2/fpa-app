@@ -51,7 +51,13 @@ async function Current({
     <>
       <BackLink selection={selection} />
       <Suspense fallback={<MatchPending />}>
-        <MatchPage key={id} id={id} initial={match} context={context} />
+        <MatchPage
+          key={id}
+          id={id}
+          selection={selection}
+          initial={match}
+          context={context}
+        />
       </Suspense>
     </>
   );
