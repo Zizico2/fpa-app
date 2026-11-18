@@ -57,6 +57,18 @@ export type Detail = {
   officials: string[];
   fetchedAt: string | null;
 };
+export type MatchRecord =
+  | { id: string; status: 'found'; detail: Detail }
+  | { id: string; status: 'not-found' };
+export type MatchContext = {
+  seasonName: string;
+  competitionName: string;
+  phaseName: string;
+  standings: Pick<
+    Standing,
+    'teamId' | 'name' | 'position' | 'played' | 'points'
+  >[];
+};
 export type Board = {
   id: string;
   selection: Selection;
@@ -65,10 +77,9 @@ export type Board = {
   phases: { id: string; name: string }[];
   games: Game[];
   standings: Standing[];
-  detail: Detail | null;
-  detailError: string | null;
   fetchedAt: string | null;
 };
+export const isFpaId = (value: string) => /^[1-9][0-9]{0,11}$/.test(value);
 export function selectionKey(s: Selection) {
   return [s.season, s.gender, s.competition, s.phase, s.match].join(':');
 }
@@ -76,8 +87,7 @@ export function readSelection(p: URLSearchParams): Selection {
   const s = { ...emptySelection };
   for (const k of ['season', 'competition', 'phase', 'match'] as const) {
     const v = p.get(k) ?? '';
-    if (v && !/^[1-9][0-9]{0,11}$/.test(v))
-      throw new Error('Identificador inválido');
+    if (v && !isFpaId(v)) throw new Error('Identificador inválido');
     s[k] = v;
   }
   s.gender = p.get('gender') ?? 'M';

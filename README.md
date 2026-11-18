@@ -23,9 +23,10 @@ It does not duplicate the server-data cache managed by TanStack DB.
 browser → Next.js/Hono → fpa-gateway (tonic/Moka) → fpa-proxy (tonic/Progenitor) → FPA
 ```
 
-The browser calls only /api/board. Generated protobuf, gRPC transport, configured
-backend origin and federation HTTP clients remain server-only. The app never
-falls back to fixture data. Tests use a separately launched gRPC fixture server.
+The browser calls `/api/board` for results and `/api/match/:id` for match sheets.
+Generated protobuf, gRPC transport, configured backend origin and federation
+HTTP clients remain server-only. The app never falls back to fixture data.
+Tests use a separately launched gRPC fixture server.
 Source schema provenance is recorded in proto/README.md.
 
 ## Run
@@ -43,6 +44,8 @@ Open http://127.0.0.1:3200. FPA_GRPC_URL is server-only and defaults to the loca
 gateway. A custom hosted URL must be a TLS-verified native gRPC origin. gRPC-Web
 and browser access to the Rust services are not needed. Builds require no running
 backend: a static loading shell streams the request-time result view.
+Each resource load has one 25-second budget across all of its gRPC calls.
+`FPA_RPC_BUDGET_MS` can set a smaller server-side budget.
 
 ## History and live data
 
@@ -53,10 +56,13 @@ published period scores, squads, player goals/sanctions and assigned officials,
 with the boletim and the match record on separate tabs.
 Unpublished/empty squads and missing matches have explicit states.
 
-The browser refreshes visible results every 15 seconds and on focus; the gateway
-caches phases 15 seconds and match sheets 10 seconds. A failed refresh preserves
-the last successful data and shows a retry warning. The displayed consultation
-time is upstream retrieval time, retained across gateway cache hits, not a
+The browser refreshes the visible results board or match sheet every 15 seconds
+and on focus. On a match page, the server loads competition context separately
+on navigation and displays it only when the phase contains the match. Polling
+the sheet does not reload the competition context. The gateway caches phases
+15 seconds and match sheets 10 seconds. A failed refresh preserves the last
+successful data and shows a retry warning. The displayed consultation time is
+upstream retrieval time, retained across gateway cache hits, not a
 fabricated source-update time. FPA can update scores during a match, but its
 in-play delay/coverage is unverified. No running clock, streaming event feed or
 second-by-second accuracy is claimed. Calendar code 50 is not used to decide that
@@ -84,8 +90,9 @@ rtk bun run astryx:doctor
 Desktop/mobile Playwright tests cover selectors, history/zone changes, search,
 results, standings, sheets, failure/retry retention, automatic polling and
 horizontal overflow. The dev suite uses gRPC port 50211, Next port 3201 and
-`build/e2e`. The production suite verifies client navigation and the prefetched
-match shell using gRPC port 50212, Next port 3202 and `build/e2e-production`.
+`build/e2e`. The production suite verifies client navigation, the prefetched
+match shell, and that match data stays independent of competition failures and
+delays. It uses gRPC port 50212, Next port 3202 and `build/e2e-production`.
 Next's instant navigation test API is enabled only for that fixture build.
 Live browser QA additionally exercises the actual federation →
 proxy → gateway → app path. `test:e2e:deployed` accepts DEPLOYED_TEST_URL and the

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { readSelection } from '../lib/results';
-import { getBoard } from './results';
+import { isFpaId, readSelection } from '../lib/results';
+import { getBoard, getMatch } from './results';
 export const api = new Hono()
   .basePath('/api')
   .get('/board', async (c) => {
@@ -13,8 +13,17 @@ export const api = new Hono()
     c.header('Cache-Control', 'no-store');
     return c.json(await getBoard(input, c.req.raw.signal));
   })
+  .get('/match/:id', async (c) => {
+    const id = c.req.param('id');
+    c.header('Cache-Control', 'no-store');
+    if (!isFpaId(id)) return c.json({ error: 'Identificador inválido' }, 400);
+    const match = await getMatch(id, c.req.raw.signal);
+    if (match.status === 'not-found') return c.json(match, 404);
+    return c.json(match);
+  })
   .onError((error, c) => {
-    console.error('FPA results unavailable', error);
+    if (!c.req.raw.signal.aborted)
+      console.error('FPA results unavailable', error);
     return c.json(
       { error: 'Não foi possível consultar a FPA. Tente atualizar novamente.' },
       503,

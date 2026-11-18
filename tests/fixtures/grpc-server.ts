@@ -2,50 +2,57 @@ import { createServer } from 'node:http2';
 import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import { connectNodeAdapter } from '@connectrpc/connect-node';
 import { ResultsService } from '../../src/server/gen/fpa/v1/results_pb';
+import { beforeRpc, handleFixtureControl } from './grpc-control';
 
 const time = () => timestampFromDate(new Date());
 let score = 0;
-const server = createServer(
-  connectNodeAdapter({
-    routes(router) {
-      router.service(ResultsService, {
-        ping: () => ({ message: 'fixture ready' }),
-        listSeasons: () => ({
-          seasons: [
-            { id: '374', name: '2026/27' },
-            { id: '373', name: '2025/26' },
-          ],
-          fetchedAt: time(),
-        }),
-        listCompetitions: (r) => ({
-          competitions:
-            r.gender === 'F'
-              ? [{ id: '10023', name: 'PO09 - Campeonato Betclic Feminino' }]
-              : r.seasonId === '373'
-                ? [
-                    {
-                      id: '9549',
-                      name: 'PO03 - Campeonato Nacional 3a Divisao Masculina',
-                    },
-                  ]
-                : [
-                    {
-                      id: '10016',
-                      name: 'PO01 - Campeonato Betclic Masculino',
-                    },
-                    { id: '10017', name: 'PO01A - Divisao de Honra Masculina' },
-                    {
-                      id: '10018',
-                      name: 'PO02 - Campeonato Nacional 2a Divisao Masculina',
-                    },
-                    {
-                      id: '10019',
-                      name: 'PO03 - Campeonato Nacional 3a Divisao Masculina',
-                    },
-                  ],
-          fetchedAt: time(),
-        }),
-        listPhases: (r) => ({
+const handler = connectNodeAdapter({
+  routes(router) {
+    router.service(ResultsService, {
+      ping: () => ({ message: 'fixture ready' }),
+      listSeasons: () => ({
+        seasons: [
+          { id: '374', name: '2026/27' },
+          { id: '373', name: '2025/26' },
+        ],
+        fetchedAt: time(),
+      }),
+      listCompetitions: (r) => ({
+        competitions:
+          r.gender === 'F'
+            ? [{ id: '10023', name: 'PO09 - Campeonato Betclic Feminino' }]
+            : r.seasonId === '373'
+              ? [
+                  {
+                    id: '9549',
+                    name: 'PO03 - Campeonato Nacional 3a Divisao Masculina',
+                  },
+                ]
+              : [
+                  {
+                    id: '10016',
+                    name: 'PO01 - Campeonato Betclic Masculino',
+                  },
+                  { id: '10017', name: 'PO01A - Divisao de Honra Masculina' },
+                  {
+                    id: '10018',
+                    name: 'PO02 - Campeonato Nacional 2a Divisao Masculina',
+                  },
+                  {
+                    id: '10019',
+                    name: 'PO03 - Campeonato Nacional 3a Divisao Masculina',
+                  },
+                  { id: '10020', name: 'Competiçao de teste — fase lenta' },
+                  {
+                    id: '10021',
+                    name: 'Competiçao de teste — fase indisponível',
+                  },
+                ],
+        fetchedAt: time(),
+      }),
+      listPhases: async (r, { signal }) => {
+        await beforeRpc(`listPhases:${r.competitionId}`, signal);
+        return {
           phases:
             r.competitionId === '10019' || r.competitionId === '9549'
               ? [
@@ -54,11 +61,19 @@ const server = createServer(
                 ]
               : [{ id: '27903', name: '1a Fase' }],
           fetchedAt: time(),
-        }),
-        getPhase: (r) => ({
+        };
+      },
+      getPhase: async (r, { signal }) => {
+        await beforeRpc(`getPhase:${r.competitionId}:${r.phaseId}`, signal);
+        return {
           matches: [
             {
-              id: '329208',
+              id:
+                r.competitionId === '10023'
+                  ? '449999'
+                  : r.competitionId === '10020'
+                    ? '329209'
+                    : '329208',
               home: r.phaseId === '28413' ? 'CA BALTAR' : 'CC LOULÉ',
               away: 'C VELA TAVIRA',
               homeGoals: score++,
@@ -118,76 +133,81 @@ const server = createServer(
             },
           ],
           fetchedAt: time(),
-        }),
-        getMatch: (r) =>
-          r.matchId === '329252'
-            ? {
-                match: {
-                  id: r.matchId,
-                  home: 'IFC TORRENSE',
-                  away: 'C VELA TAVIRA',
-                  date: '2027-01-30',
-                  time: '18:30',
-                  round: '12',
-                  venue: 'PAVILHÃO MUNICIPAL',
-                },
-                periods: [],
-                homePlayers: [],
-                awayPlayers: [],
-                officials: [],
-                fetchedAt: time(),
-              }
-            : {
-                match: {
-                  id: r.matchId,
-                  number: '1527',
-                  home: 'CC LOULÉ',
-                  away: 'C VELA TAVIRA',
-                  date: '2026-11-14',
-                  time: '17:30',
-                  homeGoals: 22,
-                  awayGoals: 21,
-                  sourceState: '60',
-                  venue: 'MULTIUSOS 25 DE ABRIL',
-                  round: '1',
-                },
-                periods: [
-                  { name: '1.ª parte', home: 15, away: 12 },
-                  { name: '2.ª parte', home: 7, away: 9 },
-                ],
-                homePlayers: [
-                  { name: 'Lucas Gonçalves', shirt: '1', goals: 0 },
-                  {
-                    name: 'Diogo Fernandes',
-                    shirt: '9',
-                    goals: 6,
-                    yellow: 'S',
-                  },
-                  {
-                    name: 'Nuno Teixeira',
-                    shirt: '7',
-                    goals: 2,
-                    disqualified: 'S',
-                  },
-                  {
-                    name: 'Rui Pacheco',
-                    shirt: '10',
-                    goals: 4,
-                    exclusions: 1,
-                  },
-                  { name: 'Helena Costa', role: 'Treinadora' },
-                ],
-                awayPlayers: [],
-                officials: [
-                  'Gonçalo Santos · Árbitro 1',
-                  'Eduardo Domingos · Árbitro 2',
-                ],
-                fetchedAt: time(),
+        };
+      },
+      getMatch: async (r, { signal }) => {
+        await beforeRpc(`getMatch:${r.matchId}`, signal);
+        return r.matchId === '329252'
+          ? {
+              match: {
+                id: r.matchId,
+                home: 'IFC TORRENSE',
+                away: 'C VELA TAVIRA',
+                date: '2027-01-30',
+                time: '18:30',
+                round: '12',
+                venue: 'PAVILHÃO MUNICIPAL',
               },
-      });
-    },
-  }),
-);
+              periods: [],
+              homePlayers: [],
+              awayPlayers: [],
+              officials: [],
+              fetchedAt: time(),
+            }
+          : {
+              match: {
+                id: r.matchId,
+                number: '1527',
+                home: 'CC LOULÉ',
+                away: 'C VELA TAVIRA',
+                date: '2026-11-14',
+                time: '17:30',
+                homeGoals: 22,
+                awayGoals: 21,
+                sourceState: '60',
+                venue: 'MULTIUSOS 25 DE ABRIL',
+                round: '1',
+              },
+              periods: [
+                { name: '1.ª parte', home: 15, away: 12 },
+                { name: '2.ª parte', home: 7, away: 9 },
+              ],
+              homePlayers: [
+                { name: 'Lucas Gonçalves', shirt: '1', goals: 0 },
+                {
+                  name: 'Diogo Fernandes',
+                  shirt: '9',
+                  goals: 6,
+                  yellow: 'S',
+                },
+                {
+                  name: 'Nuno Teixeira',
+                  shirt: '7',
+                  goals: 2,
+                  disqualified: 'S',
+                },
+                {
+                  name: 'Rui Pacheco',
+                  shirt: '10',
+                  goals: 4,
+                  exclusions: 1,
+                },
+                { name: 'Helena Costa', role: 'Treinadora' },
+              ],
+              awayPlayers: [],
+              officials: [
+                'Gonçalo Santos · Árbitro 1',
+                'Eduardo Domingos · Árbitro 2',
+              ],
+              fetchedAt: time(),
+            };
+      },
+    });
+  },
+});
+const server = createServer((req, res) => {
+  if (!handleFixtureControl(req, res)) handler(req, res);
+});
 server.listen(Number(process.env.FPA_FIXTURE_PORT ?? '50211'), '127.0.0.1');
 for (const sig of ['SIGTERM', 'SIGINT'])
   process.on(sig, () => server.close(() => process.exit(0)));

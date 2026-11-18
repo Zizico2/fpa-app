@@ -1,10 +1,13 @@
-import { collectionOptions, DbClient, Query } from '@tanstack/db';
+import { collectionOptions, DbClient } from '@tanstack/db';
 import { QueryClient } from '@tanstack/query-core';
 import { queryCollectionOptions } from '@tanstack/query-db-collection';
-import type { Board } from './results';
-export type Loader = (signal?: AbortSignal) => Promise<Board[]>;
 
-export function createBoardScope(loader: Loader) {
+type Row = { id: string };
+type Loader<T extends Row> = (signal?: AbortSignal) => Promise<T[]>;
+const RESOURCE_STALE_MS = 10_000;
+const RESOURCE_POLL_MS = 15_000;
+
+export function createResourceScope<T extends Row>(loader: Loader<T>) {
   const id = `fpa-${crypto.randomUUID()}`;
   const queryClient = new QueryClient();
   const db = new DbClient({ queryClient, loader });
@@ -14,10 +17,10 @@ export function createBoardScope(loader: Loader) {
       queryClient: client.requireDependency<QueryClient>('queryClient'),
       queryKey: [id],
       queryFn: ({ signal }) =>
-        client.requireDependency<Loader>('loader')(signal),
-      getKey: (r: Board) => r.id,
-      staleTime: 10_000,
-      refetchInterval: 15_000,
+        client.requireDependency<Loader<T>>('loader')(signal),
+      getKey: (r: T) => r.id,
+      staleTime: RESOURCE_STALE_MS,
+      refetchInterval: RESOURCE_POLL_MS,
       refetchOnWindowFocus: true,
       retry: false,
     }),
@@ -26,7 +29,5 @@ export function createBoardScope(loader: Loader) {
     db,
     queryClient,
     collection,
-    query: new Query().from({ board: collection }),
-    queryKey: [id],
   };
 }
