@@ -19,6 +19,7 @@ jobs:
       - run: bun run theme:check
       - run: bunx playwright install --with-deps chromium
       - run: bun run test:e2e
+      - run: bun run test:e2e:production
       - run: bun run build
       - run: bun run check:client
       - run: bun run astryx:doctor

@@ -6,6 +6,9 @@ const config: NextConfig = {
   reactCompiler: true,
   cacheComponents: true,
   partialPrefetching: true,
+  ...(process.env.FPA_E2E_INSTANT === '1' && {
+    experimental: { exposeTestingApiInProductionBuild: true },
+  }),
   typedRoutes: true,
   serverExternalPackages: ['@connectrpc/connect-node'],
   turbopack: { root: process.cwd() },

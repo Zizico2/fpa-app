@@ -1,13 +1,14 @@
 'use client';
 import { Text } from '@astryxdesign/core/Text';
 import * as stylex from '@stylexjs/stylex';
+import Link from 'next/link';
 
 export function SiteHeader() {
   return (
     <header {...stylex.props(styles.header)}>
-      <a href="/" {...stylex.props(styles.brand)}>
+      <Link href="/" {...stylex.props(styles.brand)}>
         sete<span {...stylex.props(styles.dot)}>.</span>
-      </a>
+      </Link>
       <Text color="secondary">Andebol português</Text>
       <a
         href="https://portal.fpa.pt/"

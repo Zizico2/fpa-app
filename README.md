@@ -63,9 +63,9 @@ second-by-second accuracy is claimed. Calendar code 50 is not used to decide tha
 a match has finished. Source-local dates/times remain local strings.
 
 Changing filters creates an isolated DB/query scope; stale results from another
-selection are never displayed under a new competition title. StrictMode-safe
-cleanup disposes old scopes. National catalog discovery is season/gender-specific;
-other seasons can contain different competitions and phases.
+selection are never displayed under a new competition title. TanStack manages
+subscriptions and cleanup for inactive scopes. National catalog discovery is
+season/gender-specific; other seasons can contain different competitions and phases.
 
 ## Verify
 
@@ -75,6 +75,7 @@ rtk bun run test
 rtk bun run theme:check
 rtk bunx playwright install --with-deps chromium
 rtk bun run test:e2e
+rtk bun run test:e2e:production
 rtk bun run build
 rtk bun run check:client
 rtk bun run astryx:doctor
@@ -82,8 +83,11 @@ rtk bun run astryx:doctor
 
 Desktop/mobile Playwright tests cover selectors, history/zone changes, search,
 results, standings, sheets, failure/retry retention, automatic polling and
-horizontal overflow. Fixture services use 50211, isolated Next output build/e2e
-and port 3201. Live browser QA additionally exercises the actual federation →
+horizontal overflow. The dev suite uses gRPC port 50211, Next port 3201 and
+`build/e2e`. The production suite verifies client navigation and the prefetched
+match shell using gRPC port 50212, Next port 3202 and `build/e2e-production`.
+Next's instant navigation test API is enabled only for that fixture build.
+Live browser QA additionally exercises the actual federation →
 proxy → gateway → app path. `test:e2e:deployed` accepts DEPLOYED_TEST_URL and the
 existing private Vercel protection-bypass configuration, without saving credentials.
 
