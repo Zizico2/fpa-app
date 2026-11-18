@@ -10,7 +10,7 @@ import { useMachine } from '@xstate/react';
 import { Activity, ArrowUpRight, RefreshCw, Search } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { type ComponentProps, useEffect, useState } from 'react';
 import { navigationMachine } from '../lib/navigation';
 import {
   type Board,
@@ -77,6 +77,32 @@ function ResultsSelection({ initial, input }: ResultsProps) {
     </DataScope>
   );
 }
+
+function MatchLink(props: ComponentProps<typeof Link>) {
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [ready, setReady] = useState(false);
+  const intent = hovered || focused;
+  useEffect(() => {
+    if (!intent) return;
+    const timeout = setTimeout(() => setReady(true), 150);
+    return () => {
+      clearTimeout(timeout);
+      setReady(false);
+    };
+  }, [intent]);
+  return (
+    <Link
+      {...props}
+      prefetch={intent && ready ? true : 'auto'}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+    />
+  );
+}
+
 type Send = (
   e:
     | {
@@ -335,7 +361,7 @@ function BoardPanel({
                           {gameDate(g.date)}
                         </div>
                       )}
-                      <Link
+                      <MatchLink
                         href={matchPath({
                           ...(board?.selection ?? selection),
                           match: g.id,
@@ -358,7 +384,7 @@ function BoardPanel({
                           <span>{score(g.awayGoals)}</span>
                         </span>
                         <ArrowUpRight size={16} aria-hidden="true" />
-                      </Link>
+                      </MatchLink>
                     </div>
                   ))}
                 </div>

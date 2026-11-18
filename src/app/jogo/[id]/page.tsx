@@ -1,8 +1,25 @@
-import { connection } from 'next/server';
+import { cacheLife } from 'next/cache';
 import { Suspense } from 'react';
 import { MatchPage, MatchPending } from '../../../components/match-page';
-import { emptySelection, readSelection } from '../../../lib/results';
+import {
+  emptySelection,
+  readSelection,
+  type Selection,
+} from '../../../lib/results';
 import { getBoard } from '../../../server/results';
+
+async function getMatchSnapshot(selection: Selection) {
+  'use cache';
+  const board = await getBoard(selection);
+  // Keep the server snapshot on the existing board freshness cadence while
+  // allowing Next to prefetch it. Leave error responses dynamic.
+  cacheLife(
+    board.detail
+      ? { stale: 30, revalidate: 10, expire: 300 }
+      : { stale: 0, revalidate: 0, expire: 1 },
+  );
+  return board;
+}
 
 async function Current({
   params,
@@ -11,7 +28,6 @@ async function Current({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await connection();
   const { id } = await params;
   if (!/^[1-9][0-9]{0,11}$/.test(id)) {
     return (
@@ -35,7 +51,7 @@ async function Current({
     selection = { ...emptySelection, match: id };
   }
   try {
-    const data = await getBoard(selection);
+    const data = await getMatchSnapshot(selection);
     return <MatchPage initial={data} input={data.selection} named={named} />;
   } catch {
     return <MatchPage initial={null} input={selection} named={named} />;
