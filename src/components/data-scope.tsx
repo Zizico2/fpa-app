@@ -1,11 +1,7 @@
 'use client';
 import { DbProvider, useLiveQuery } from '@tanstack/react-db';
 import { createContext, useContext, useEffect, useState } from 'react';
-import {
-  createResourceScope,
-  RESOURCE_POLL_MS,
-  RESOURCE_STALE_MS,
-} from '../lib/collections';
+import { createResourceScope, RESOURCE_POLL_MS } from '../lib/collections';
 import type { Board, MatchRecord, Selection } from '../lib/results';
 import { loadBoard, loadMatch } from '../sdk/results';
 
@@ -80,6 +76,7 @@ function useResource<T extends { id: string }>(
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   useEffect(() => {
+    queryClient.mount();
     const update = () =>
       setError(
         queryClient.getQueryState(queryKey)?.status === 'error'
@@ -99,19 +96,11 @@ function useResource<T extends { id: string }>(
         .utils.refetch()
         .catch(() => undefined);
     };
-    const refreshOnFocus = () => {
-      const lastSuccess =
-        queryClient.getQueryState(queryKey)?.dataUpdatedAt ?? 0;
-      if (Date.now() - lastSuccess >= RESOURCE_STALE_MS) poll();
-    };
     const timer = window.setInterval(poll, RESOURCE_POLL_MS);
-    window.addEventListener('focus', refreshOnFocus);
-    document.addEventListener('visibilitychange', refreshOnFocus);
     return () => {
       unsubscribe();
       window.clearInterval(timer);
-      window.removeEventListener('focus', refreshOnFocus);
-      document.removeEventListener('visibilitychange', refreshOnFocus);
+      queryClient.unmount();
     };
   }, [collection, db, queryClient, queryKey]);
   async function refresh() {

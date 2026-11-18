@@ -128,6 +128,47 @@ test('failed or unrelated competition context cannot hide or label a healthy she
   ).toHaveCount(0);
 });
 
+test('returning to the tab refreshes a stale match but leaves a fresh one alone', async ({
+  page,
+}) => {
+  const path = '/api/match/329210';
+  const isMatchRequest = (url: string) => new URL(url).pathname === path;
+  let requests = 0;
+  page.on('request', (request) => {
+    if (isMatchRequest(request.url())) requests++;
+  });
+  const matchResponse = () =>
+    page.waitForResponse(
+      (response) => isMatchRequest(response.url()) && response.ok(),
+    );
+  const setVisibility = (value: 'visible' | 'hidden') =>
+    page.evaluate((state) => {
+      Object.defineProperty(document, 'visibilityState', {
+        value: state,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+    }, value);
+
+  await page.clock.install();
+  const [initial] = await Promise.all([
+    matchResponse(),
+    page.goto('/jogo/329210'),
+  ]);
+  await initial.finished();
+  await setVisibility('hidden');
+  await setVisibility('visible');
+  await page.clock.runFor(1_000);
+  expect(requests).toBe(1);
+
+  await setVisibility('hidden');
+  // The match goes stale after 10s. Stay below the 15s polling interval.
+  await page.clock.runFor(10_100);
+  expect(requests).toBe(1);
+  await Promise.all([matchResponse(), setVisibility('visible')]);
+  expect(requests).toBe(2);
+});
+
 test('keeps the last sheet on a gRPC refresh failure and cancels a pending refresh on navigation', async ({
   page,
   control,
