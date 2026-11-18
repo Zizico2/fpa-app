@@ -54,14 +54,13 @@ test('shows the score and sheet while the phase is held, then polls the sheet in
 }) => {
   const phase = 'getPhase:10020:27903';
   const resultsUrl = '/?season=374&gender=M&competition=10020&phase=27903';
-  await page.clock.install();
-  await Promise.all([
+  const boardResponse = () =>
     page.waitForResponse(
       (response) =>
         new URL(response.url()).pathname === '/api/board' && response.ok(),
-    ),
-    page.goto(resultsUrl),
-  ]);
+    );
+  await page.clock.install();
+  await Promise.all([boardResponse(), page.goto(resultsUrl)]);
   await control(phase, 'hold');
   const requested: string[] = [];
   page.on('request', (request) =>
@@ -74,9 +73,10 @@ test('shows the score and sheet while the phase is held, then polls the sheet in
         response.ok(),
     );
   const initialMatch = matchResponse();
-  await page
-    .getByRole('link', { name: 'CC LOULÉ — C VELA TAVIRA, ver jogo' })
-    .click();
+  const matchLink = page.getByRole('link', {
+    name: 'CC LOULÉ — C VELA TAVIRA, ver jogo',
+  });
+  await matchLink.click();
   await expect(page).toHaveURL(withContext('329209', '10020'));
   await expect.poll(async () => (await control(phase)).calls).toBe(1);
   const competition = page
@@ -95,9 +95,8 @@ test('shows the score and sheet while the phase is held, then polls the sheet in
   await expect(
     page.getByRole('table', { name: 'Na classificação' }),
   ).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: 'Voltar aos resultados' }),
-  ).toHaveAttribute('href', resultsUrl);
+  const back = page.getByRole('link', { name: 'Voltar aos resultados' });
+  await expect(back).toHaveAttribute('href', resultsUrl);
 
   await initialMatch;
   const poll = matchResponse();
@@ -107,6 +106,15 @@ test('shows the score and sheet while the phase is held, then polls the sheet in
   await poll;
   expect(requested).not.toContain('/api/board');
   expect((await control(phase)).calls).toBe(1);
+
+  await back.click();
+  await expect(page).toHaveURL(resultsUrl);
+  await expect(matchLink).toBeVisible();
+  const afterReturn = requested.length;
+  const boardPoll = boardResponse();
+  await page.clock.runFor(16_000);
+  await boardPoll;
+  expect(requested.slice(afterReturn)).not.toContain('/api/match/329209');
 });
 
 test('failed or unrelated competition context cannot hide or label a healthy sheet', async ({

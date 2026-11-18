@@ -1,7 +1,7 @@
 'use client';
 import { DbProvider, useLiveQuery } from '@tanstack/react-db';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { createResourceScope, RESOURCE_POLL_MS } from '../lib/collections';
+import { createResourceScope } from '../lib/collections';
 import type { Board, MatchRecord, Selection } from '../lib/results';
 import { loadBoard, loadMatch } from '../sdk/results';
 
@@ -70,9 +70,14 @@ function useResource<T extends { id: string }>(
 ) {
   if (!resource) throw new Error('Os dados não estão disponíveis');
   const scope = resource;
-  const { db, queryClient, queryKey, query, collection } = scope;
-  const { data } = useLiveQuery({ query });
-  const value = data[0] ?? initial;
+  const { db, queryClient, queryKey, collection } = scope;
+  const source = db.collection(collection);
+  // Direct subscriptions start sync immediately. The server already supplies
+  // the initial value; only the browser should start the HTTP loader.
+  const { data } = useLiveQuery(() =>
+    typeof window === 'undefined' ? undefined : source,
+  );
+  const value = data?.[0] ?? initial;
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   useEffect(() => {
@@ -86,30 +91,17 @@ function useResource<T extends { id: string }>(
     update();
     const unsubscribe = queryClient.getQueryCache().subscribe(update);
 
-    // Start and stop polling with the visible React view. Next can hide the
-    // route before TanStack retires its observers; that must not keep it polling.
-    const poll = () => {
-      const state = queryClient.getQueryState(queryKey);
-      if (!state || state.fetchStatus === 'fetching' || document.hidden) return;
-      void db
-        .collection(collection)
-        .utils.refetch()
-        .catch(() => undefined);
-    };
-    const timer = window.setInterval(poll, RESOURCE_POLL_MS);
     return () => {
       unsubscribe();
-      window.clearInterval(timer);
       queryClient.unmount();
     };
-  }, [collection, db, queryClient, queryKey]);
+  }, [queryClient, queryKey]);
   async function refresh() {
     setRefreshing(true);
     try {
-      const c = db.collection(collection);
       // A failed first load must not prevent an explicit retry.
-      await c.preload().catch(() => undefined);
-      await c.utils.refetch({ throwOnError: true });
+      await source.preload().catch(() => undefined);
+      await source.utils.refetch({ throwOnError: true });
     } catch {
       setError('Não foi possível atualizar. Tente novamente.');
     } finally {
